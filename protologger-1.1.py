@@ -328,9 +328,22 @@ full_names = {}
 for line in open(code_path + 'bin/16S-SILVA/LTP-DB/LTP.fasta'):
     if line.startswith('>'):
         timber = line.split('\|')
-        full_names[timber[2]] = timber[3].split(' subsp')[0] + '--' + timber[4].replace('\n','').split(';')[4]
-
-
+        try:
+            seq_id = timber[2]
+            species_name = timber[3].split(' subsp')[0]
+            tax_levels = timber[4].replace('\n','').split(';')
+            
+            # Safely grab the 5th taxonomic level, or default to the deepest available
+            tax_target = tax_levels[4] if len(tax_levels) > 4 else tax_levels[-1]
+            
+            full_names[seq_id] = species_name + '--' + tax_target
+        except IndexError:
+            # If the database header format is completely missing columns, default it safely
+            try:
+                full_names[timber[2]] = "Unknown_Species--Unknown_Taxonomy"
+            except IndexError:
+                pass
+                
 # Check the validity of the species names against the latest DSMZ database (every few months needs updating)
 # from https://www.dsmz.de/services/online-tools/prokaryotic-nomenclature-up-to-date/downloads
 
