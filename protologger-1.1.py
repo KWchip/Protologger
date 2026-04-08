@@ -1756,19 +1756,23 @@ outputting_gc_content.close()
 #
 #######################
 
-
 outputting = open(dir_path +project_name+'/comparison_list.txt','w')
+comparison_files = glob.glob(dir_path +project_name+'/Genome_analysis/*.fna')
 
-for cfile in glob.glob(dir_path +project_name+'/Genome_analysis/*.fna'):
+for cfile in comparison_files:
     outputting.write(cfile + '\n')
     
 outputting.close()
 
+open(dir_path + project_name + '/ANI_values.tab', 'w').close()
 
-bashCommand = 'fastANI -q '+genome_file+' --rl ' + dir_path +project_name+'/comparison_list.txt -o ' + dir_path +project_name+'/ANI_values.tab'
-#print bashCommand
-process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-time.sleep(120)
+# Only run fastANI if there are actually reference genomes to compare against
+if len(comparison_files) > 0:
+    bashCommand = 'fastANI -q '+genome_file+' --rl ' + dir_path +project_name+'/comparison_list.txt -o ' + dir_path +project_name+'/ANI_values.tab'
+    process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+    process.communicate() 
+else:
+    print('No reference genomes extracted from GTDB-Tk.')
 
 
 
