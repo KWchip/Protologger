@@ -492,29 +492,29 @@ elif completness_16S < 85.0:
 
 
 
-#############################################
-# 
-#       Chimera check
-#
-#######################
+# #############################################
+# # 
+# #       Chimera check
+# #
+# #######################
 
-#Run UCHIME
-bashCommand = 'usearch -uchime ' + File_16S + ' -db ' + code_path + 'bin/16S-SILVA/LTP-DB/LTPs132_SSU_compressed.fasta -uchimeout ' + dir_path + project_name + '/Chimera_check.txt' 
-#print bashCommand
-process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-output, error = process.communicate()
+# #Run UCHIME
+# bashCommand = 'usearch -uchime ' + File_16S + ' -db ' + code_path + 'bin/16S-SILVA/LTP-DB/LTPs132_SSU_compressed.fasta -uchimeout ' + dir_path + project_name + '/Chimera_check.txt' 
+# #print bashCommand
+# process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+# output, error = process.communicate()
 
-#time.sleep(30)
+# #time.sleep(30)
 
 
 
-for line in open(dir_path +project_name + '/Chimera_check.txt','r'):
-    if line.replace('\n','').split('\t')[-1:][0][0] == 'N':
-        #print 'The input 16S rRNA gene was not identified as a chimera.\n'
-        outputting_overview.write('The input 16S rRNA gene was not identified as a chimera.\n')
-    else:
-        #print 'WARNING: The input 16S rRNA gene was identified as a chimera, the following results may not be reliable due to this.\n'
-        outputting_overview.write('WARNING: The input 16S rRNA gene was identified as a chimera, the following results may not be reliable due to this.\n')
+# for line in open(dir_path +project_name + '/Chimera_check.txt','r'):
+#     if line.replace('\n','').split('\t')[-1:][0][0] == 'N':
+#         #print 'The input 16S rRNA gene was not identified as a chimera.\n'
+#         outputting_overview.write('The input 16S rRNA gene was not identified as a chimera.\n')
+#     else:
+#         #print 'WARNING: The input 16S rRNA gene was identified as a chimera, the following results may not be reliable due to this.\n'
+#         outputting_overview.write('WARNING: The input 16S rRNA gene was identified as a chimera, the following results may not be reliable due to this.\n')
 
 
 
