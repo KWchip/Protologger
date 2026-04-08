@@ -370,15 +370,21 @@ num = 0
 
 
 for seq in HTSeq.FastaReader(code_path + 'bin/16S-SILVA/LTP-DB/LTP.fasta'):
-    if seq.name.split('\|')[2] in top_50:
-        num +=1
-        #print 'Extracted 16S; ' ,num
-        name = full_names[seq.name.split('\|')[2]].replace(' ','_')
+    try:
+        seq_key = seq.name.split('\|')[2]
+    except IndexError:
+        seq_key = seq.name
+
+    if seq_key in top_50:
+        num += 1
+        # Use .get() to provide a safe fallback if the database header was malformed
+        name = full_names.get(seq_key, "Unknown_Species--Unknown_Taxonomy").replace(' ','_')
+        
         if name.split('--')[0] in Valid_names:
-            outputting.write('>' + name + '--' + seq.name.split('\|')[2] + '--Valid' + '\n')
+            outputting.write('>' + name + '--' + seq_key + '--Valid\n')
         else:
-            outputting.write('>' + name + '--' + seq.name.split('\|')[2] + '--NOT_VALID' + '\n')
-        #print (seq.seq.decode("utf-8"))
+            outputting.write('>' + name + '--' + seq_key + '--NOT_VALID\n')
+            
         outputting.write(seq.seq.decode("utf-8") + '\n')
         
 outputting.close()
