@@ -21,7 +21,7 @@ import string
 from datetime import date
 import os.path
 import shutil
-
+import concurrent.futures
 
 
 
@@ -71,13 +71,16 @@ parser_full.add_argument("-r", type=str, action='store', required=True, dest='rR
 parser_full.add_argument("-g", type=str, action='store', required=True, dest='genome', help="Input genome")
 parser_full.add_argument("-p", type=str, action='store', required=True, dest='project', help="Project name for output folder")
 parser_full.add_argument("-q", action='store_true', dest='quick', help="Run quick version (ignore GTDB-Tk and PhyloPhlAn)")
+parser_full.add_argument("-t", type=int, action='store', default=1, dest='threads', help="Number of threads to use (default: 1)")
 
 # 16S standalone
 parser_16s = subparsers.add_parser("16s", help="Run strictly the 16S taxonomic placement and chimera check")
 parser_16s.add_argument("-r", type=str, action='store', required=True, dest='rRNA_gene', help="Input 16S rRNA gene sequence")
 parser_16s.add_argument("-p", type=str, action='store', required=True, dest='project', help="Project name for output folder")
+parser_16s.add_argument("-t", type=int, action='store', default=1, dest='threads', help="Number of threads for IMNGS BLAST (default: 1)")
 
 args = parser.parse_args()
+threads = str(args.threads) 
 
 if args.command is None:
     parser.print_help()
@@ -343,7 +346,7 @@ for line in open(code_path + 'bin/16S-SILVA/LTP-DB/LTP.fasta'):
                 full_names[timber[2]] = "Unknown_Species--Unknown_Taxonomy"
             except IndexError:
                 pass
-                
+
 # Check the validity of the species names against the latest DSMZ database (every few months needs updating)
 # from https://www.dsmz.de/services/online-tools/prokaryotic-nomenclature-up-to-date/downloads
 
@@ -914,7 +917,7 @@ outputting.close()
 
 
 # Conduct alignment
-bashCommand = 'muscle -in ' + dir_path +project_name+'/Combined.fasta -out ' + dir_path +project_name+'/Combined.afa -maxiters 10 -quiet'  
+bashCommand = 'muscle -align ' + dir_path +project_name+'/Combined.fasta -output ' + dir_path +project_name+'/Combined.afa'
 #print bashCommand
 process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
 output, error = process.communicate()
@@ -947,74 +950,74 @@ output, error = process.communicate()
 #
 ############
 
-outputting_overview.write('\n\nEcological analysis\n')
-outputting_overview.write('-------------------\n\n')
+# outputting_overview.write('\n\nEcological analysis\n')
+# outputting_overview.write('-------------------\n\n')
 
-bashCommand = 'mkdir -p  ' + dir_path +project_name+'/IMNGS-analysis' 
-process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-output, error = process.communicate()
+# bashCommand = 'mkdir -p  ' + dir_path +project_name+'/IMNGS-analysis' 
+# process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+# output, error = process.communicate()
 
-for cenv in glob.glob(code_path + 'bin/IMNGS/FASTA-1000_files/FASTA_files/*.fasta'):
-    bashCommand = 'blastn -subject ' + File_16S + '  -qcov_hsp_perc 80.0 -evalue 0.0000000000000000000000001 -perc_identity 97.0 -strand both -outfmt 6 -query '+cenv+' -out ' + dir_path +project_name+'/IMNGS-analysis/' + cenv.split('/')[-1:][0].replace('.fasta','.m8') 
-    process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
+# for cenv in glob.glob(code_path + 'bin/IMNGS/FASTA-1000_files/FASTA_files/*.fasta'):
+#     bashCommand = 'blastn -subject ' + File_16S + '  -qcov_hsp_perc 80.0 -evalue 0.0000000000000000000000001 -perc_identity 97.0 -strand both -outfmt 6 -query '+cenv+' -out ' + dir_path +project_name+'/IMNGS-analysis/' + cenv.split('/')[-1:][0].replace('.fasta','.m8') 
+#     process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+#     output, error = process.communicate()
 
-matched_otus = {}
-for cfile in glob.glob(dir_path +project_name+'/IMNGS-analysis/*.m8'):
-    env = cfile.split('/')[-1:][0].replace('.m8','')
-    matches = []
-    for line in open(cfile,'r'):
-        matches.append(line.split('\t')[0].split(';')[0])
-    matched_otus[env] = matches
+# matched_otus = {}
+# for cfile in glob.glob(dir_path +project_name+'/IMNGS-analysis/*.m8'):
+#     env = cfile.split('/')[-1:][0].replace('.m8','')
+#     matches = []
+#     for line in open(cfile,'r'):
+#         matches.append(line.split('\t')[0].split(';')[0])
+#     matched_otus[env] = matches
 
-with open(code_path + 'bin/IMNGS/FASTA-1000_files/Abundance_profiles/IMNGS_abundance_values.pickle', 'rb') as handle:
-    abundances = pickle.load(handle, encoding='latin1')
+# with open(code_path + 'bin/IMNGS/FASTA-1000_files/Abundance_profiles/IMNGS_abundance_values.pickle', 'rb') as handle:
+#     abundances = pickle.load(handle, encoding='latin1')
 
-prev = {} 
-for env,otus in matched_otus.items():
-    samples = []
-    for i in otus:
-        sample = i.split('.')[0]
-        if sample not in samples:
-            samples.append(sample)
-    prev[env] = samples
+# prev = {} 
+# for env,otus in matched_otus.items():
+#     samples = []
+#     for i in otus:
+#         sample = i.split('.')[0]
+#         if sample not in samples:
+#             samples.append(sample)
+#     prev[env] = samples
 
-remove_samples = []
-abund = {}
-for env,otus in matched_otus.items():
-    samples = {}
-    for i in otus:
-        sample = i.split('.')[0]
-        try:
-            abun = abundances[i]
-            if sample in samples:
-                samples[sample] += abun
-            else:
-                samples[sample] = abun
-        except:
-            if sample not in remove_samples:
-                remove_samples.append(sample)
-    abund[env] = samples
+# remove_samples = []
+# abund = {}
+# for env,otus in matched_otus.items():
+#     samples = {}
+#     for i in otus:
+#         sample = i.split('.')[0]
+#         try:
+#             abun = abundances[i]
+#             if sample in samples:
+#                 samples[sample] += abun
+#             else:
+#                 samples[sample] = abun
+#         except:
+#             if sample not in remove_samples:
+#                 remove_samples.append(sample)
+#     abund[env] = samples
 
-abundance = {}
-for env,samples in abund.items():
-    total = []
-    for i in samples.values():
-        total.append(i)
-    if len(samples.keys()) == 0:
-        abundance[env] = [0.0, 0.0]
-    else:
-        abundance[env] = [np.mean(total),np.std(total)]
+# abundance = {}
+# for env,samples in abund.items():
+#     total = []
+#     for i in samples.values():
+#         total.append(i)
+#     if len(samples.keys()) == 0:
+#         abundance[env] = [0.0, 0.0]
+#     else:
+#         abundance[env] = [np.mean(total),np.std(total)]
 
-for k,v in prev.items():
-    try:
-        abun = abundance[k][0]
-        stdev = abundance[k][1]
-        outputting_overview.write('The isolate was detected in ' + str("{:.2f}".format((float(len(v))/1000)*100)) + '% of 1,000 amplicon samples from the ' + k.split('-')[0].replace('_',' ') + ' at a mean relative abundance of ' + str("{:.2f}".format(abun)) + '% with a standard deviation of ' + str("{:.2f}".format(stdev)) + '%.\n')
-    except:
-        outputting_overview.write('The isolate was detected in ' + str("{:.2f}".format((float(len(v))/1000)*100))  + '% of ' + k.split('-')[0].replace('_',' ') + ' samples.\n')
+# for k,v in prev.items():
+#     try:
+#         abun = abundance[k][0]
+#         stdev = abundance[k][1]
+#         outputting_overview.write('The isolate was detected in ' + str("{:.2f}".format((float(len(v))/1000)*100)) + '% of 1,000 amplicon samples from the ' + k.split('-')[0].replace('_',' ') + ' at a mean relative abundance of ' + str("{:.2f}".format(abun)) + '% with a standard deviation of ' + str("{:.2f}".format(stdev)) + '%.\n')
+#     except:
+#         outputting_overview.write('The isolate was detected in ' + str("{:.2f}".format((float(len(v))/1000)*100))  + '% of ' + k.split('-')[0].replace('_',' ') + ' samples.\n')
 
-outputting_overview.flush()
+# outputting_overview.flush()
 
 
 
@@ -1098,13 +1101,22 @@ output, error = process.communicate()
 
 
 
-for cenv in glob.glob(code_path + 'bin/IMNGS/FASTA-1000_files/FASTA_files/*.fasta'):
+# for cenv in glob.glob(code_path + 'bin/IMNGS/FASTA-1000_files/FASTA_files/*.fasta'):
+#     bashCommand = 'blastn -subject ' + File_16S + '  -qcov_hsp_perc 80.0 -evalue 0.0000000000000000000000001 -perc_identity 97.0 -strand both -outfmt 6 -query '+cenv+' -out ' + dir_path +project_name+'/IMNGS-analysis/' + cenv.split('/')[-1:][0].replace('.fasta','.m8') 
+#     print (bashCommand)
+#     process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+#     output, error = process.communicate()
+
+def run_imngs_blast(cenv):
     bashCommand = 'blastn -subject ' + File_16S + '  -qcov_hsp_perc 80.0 -evalue 0.0000000000000000000000001 -perc_identity 97.0 -strand both -outfmt 6 -query '+cenv+' -out ' + dir_path +project_name+'/IMNGS-analysis/' + cenv.split('/')[-1:][0].replace('.fasta','.m8') 
-    print (bashCommand)
     process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
+    process.communicate()
 
+cenv_files = glob.glob(code_path + 'bin/IMNGS/FASTA-1000_files/FASTA_files/*.fasta')
 
+print('Running IMNGS ecological BLAST using ' + threads + ' threads...')
+with concurrent.futures.ThreadPoolExecutor(max_workers=int(threads)) as executor:
+    executor.map(run_imngs_blast, cenv_files)
 
 
 
@@ -1205,7 +1217,7 @@ outputting_overview.flush()
 
 
 
-outputting_overview.flush()
+# outputting_overview.flush()
 
 
 
@@ -1220,7 +1232,7 @@ outputting_overview.flush()
 
 
 
-#print 'Analysis complete'
+# #print 'Analysis complete'
 
 
 
